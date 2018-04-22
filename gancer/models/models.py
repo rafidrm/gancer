@@ -1,12 +1,12 @@
 def create_model(opt):
     model = None
     print(opt.model)
-    if opt.model == 'cycle_gan':
-        assert (opt.dataset_mode == 'unaligned')
-        from .cycle_gan_model import CycleGANModel
-        raise NotImplementedError('I have not implemented CycleGAN yet.')
-        model = CycleGANModel()
-    elif opt.model == 'pix2pix':
+    # if opt.model == 'cycle_gan':
+    #     assert (opt.dataset_mode == 'unaligned')
+    #     from .cycle_gan_model import CycleGANModel
+    #     raise NotImplementedError('I have not implemented CycleGAN yet.')
+    #     model = CycleGANModel()
+    if opt.model == 'pix2pix':
         assert (opt.dataset_mode == 'aligned' or opt.dataset_mode == 'slice')
         from .pix2pix_model import Pix2PixModel
         model = Pix2PixModel()

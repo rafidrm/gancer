@@ -12,12 +12,14 @@ def CreateDataset(opt):
     if opt.dataset_mode == 'aligned':
         from data.aligned_dataset import AlignedDataset
         dataset = AlignedDataset()
-    elif opt.dataset_mode == 'unaligned':
-        from data.unaligned_dataset import UnalignedDataset
-        dataset = UnalignedDataset()
-    elif opt.dataset_mode == 'single':
-        from data.single_dataset import SingleDataset
-        dataset = SingleDataset()
+    # I've commented out these dataset modes as we do not use them. They may be
+    # useful in a later version.
+    # elif opt.dataset_mode == 'unaligned':
+    #     from data.unaligned_dataset import UnalignedDataset
+    #     dataset = UnalignedDataset()
+    # elif opt.dataset_mode == 'single':
+    #     from data.single_dataset import SingleDataset
+    #     dataset = SingleDataset()
     elif opt.dataset_mode == 'slice':
         from data.slice_dataset import SliceDataset
         dataset = SliceDataset()
@@ -33,7 +35,6 @@ def CreateDataset(opt):
 
 
 class CustomDatasetDataLoader(BaseDataLoader):
-
     ''' Inherited from Base. Carries functions initialize and load_data '''
 
     def name(self):
