@@ -4,10 +4,9 @@ Code for the paper "Automated Treatment Planning in Radiation Therapy using Gene
 
 Knowledge-based planning (KBP) is an automated approach to radiation therapy treatment planning that involves first predicting a desirable treatment plan, before correcting it to a deliverable one. In this work, we propose a GAN approach to predicting desirable 3D dose distributions.
 
+This code contains the implementation specifically for the GAN. We will provide the code for the optimization in a later update. Note that the dataset used in the original paper cannot be shared publicly. This will be resolved in a later update, where we will provide a synthetic dataset. Alternatively, you can use a public dataset, such as [CORT](http://gigadb.org/dataset/100110), as long as you modify the dataloader appropriately.
+
 ![GANCER manifold](imgs/manifold.png)
-
-        This code contains the implementation specifically for the GAN. We will provide the code for the optimization in a later update. Note that the dataset used in the original paper cannot be shared publicly. This will be resolved in a later update, where we will provide a synthetic dataset. Alternatively, you can use a public dataset, such as [CORT](http://gigadb.org/dataset/100110), as long as you modify the dataloader appropriately.
-
 
 ## Prerequisites
         - Linux or OS X
