@@ -1,0 +1,32 @@
+# Byte-complied / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyc
+.DS_Store
+
+# swp files
+*.swp
+
+# Distribution / packaging
+.Python
+env/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+Pipfile.lock
+Pipfile
+
+# Project specific
+raw_data/
+vision/
+checkpoints/
+datasets/
+build/
+dist/
+results/
+
+# Torch specific
