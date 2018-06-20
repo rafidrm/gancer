@@ -114,7 +114,7 @@ class BaseOptions():
         self.parser.add_argument(
                 '--display_winsize',
                 type=int,
-                default=256,
+                default=128,
                 help='display window size')
         self.parser.add_argument(
                 '--display_id',
