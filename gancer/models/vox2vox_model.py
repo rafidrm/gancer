@@ -35,8 +35,11 @@ class Vox2VoxModel(BaseModel):
             self.fake_AB_pool = ImagePool(opt.pool_size)
 
             # define loss functions
-            self.criterionGAN = networks.GANLoss(
-                    use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
+            if opt.wasserstein:
+                self.criterionGAN = lambda x, y: x.mean() * (-2 * int(y) + 1)
+            else:
+                self.criterionGAN = networks.GANLoss(
+                        use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
             self.criterionL1 = torch.nn.L1Loss()
 
             # initialize optimizers
@@ -122,9 +125,16 @@ class Vox2VoxModel(BaseModel):
         self.backward_D()
         self.optimizer_D.step()
 
+        if self.opt.wasserstein:
+            self.clip_D()
+
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
+
+    def clip_D(self):
+        for D_param in self.netD.parameters():
+            D_param.data.clamp_(-0.01, 0.01)
 
     def get_current_errors(self):
         return OrderedDict([('G_GAN', self.loss_G_GAN.data[0]), ('G_L1', self.loss_G_L1.data[0]), ('D_real', self.loss_D_real.data[0]), ('D_fake', self.loss_D_fake.data[0])])

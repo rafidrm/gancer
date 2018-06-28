@@ -77,6 +77,10 @@ class TrainOptions(BaseOptions):
                 action='store_true',
                 help='do *not* use least square GAN, if false, use vanilla GAN')
         self.parser.add_argument(
+                '--wasserstein',
+                action='store_true',
+                help='If true, use ')
+        self.parser.add_argument(
                 '--lambda_A',
                 type=float,
                 default=10.0,
