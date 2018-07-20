@@ -1,11 +1,15 @@
 import os.path
+import numpy as np
 import random
 import torchvision.transforms as transforms
 import torch
+
 from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from scipy.io import loadmat
 from util.util import vox2tensor, normalize3d
+
+
 
 
 class VoxelDataset(BaseDataset):
@@ -27,6 +31,12 @@ class VoxelDataset(BaseDataset):
         d, w, h, nc = ct_img.shape
         assert w == self.opt.loadSize, 'size mismatch in width'
         assert h == self.opt.loadSize, 'size mismatch in height'
+        
+        # to handle aaron's weird uint format
+        if dose_img.dtype == np.uint8:
+            dose_img = dose_img / 256
+        if ct_img.dtype == np.uint8:
+            ct_img = ct_img / 256
 
         A = vox2tensor(ct_img).float()
         B = vox2tensor(dose_img).float()
@@ -58,6 +68,13 @@ class VoxelDataset(BaseDataset):
         ct_img = mat['ct_imgs']
         d, w, h, nc = ct_img.shape
         assert (d, w, h) == dose_val.shape, 'size mismatch between dose and ct'
+        
+        # to handle aaron's weird uint format
+        if dose_val.dtype == np.uint8 or dose_val.dtype == np.uint16:
+            dose_val= dose_val / 256
+        if ct_img.dtype == np.uint8 or ct_img.dtype == np.uint16:
+            ct_img = ct_img / 256
+
 
         A = vox2tensor(ct_img).float()
         A = normalize3d(A, (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

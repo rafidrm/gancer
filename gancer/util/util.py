@@ -53,7 +53,7 @@ def tensor2vid(vid_tensor, vidtype=np.uint8, gray_to_rgb=True):
         vid_numpy = np.tile(vid_numpy, (3, 1, 1, 1))
     vid_numpy = np.transpose(vid_numpy, (1, 2, 3, 0))
     vid_numpy = (vid_numpy + 1) / 2.0 * 255.0
-    return vid_numpy.astype(vidtype)
+    return vid_numpy.astype(vidtype) # change the vidtype to prevent rounding
 
 
 def rescale_vid(vid, scale=4):

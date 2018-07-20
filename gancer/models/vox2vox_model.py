@@ -40,7 +40,12 @@ class Vox2VoxModel(BaseModel):
             else:
                 self.criterionGAN = networks.GANLoss(
                         use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
-            self.criterionL1 = torch.nn.L1Loss()
+            if opt.recon_loss == 'l1':
+                self.criterionL1 = torch.nn.L1Loss()
+            elif opt.recon_loss == 'l2':
+                self.criterionL1 = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError('Not a valid reconstruction loss')
 
             # initialize optimizers
             self.schedulers = []

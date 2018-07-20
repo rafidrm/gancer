@@ -120,5 +120,10 @@ class TrainOptions(BaseOptions):
                 type=int,
                 default=50,
                 help='multiply by a gamma every lr_decay_iters iterations')
+        self.parser.add_argument(
+                '--recon_loss',
+                type=str,
+                default='l1',
+                help='reconstruction loss type: l1|l2')
 
         self.isTrain = True
