@@ -227,6 +227,45 @@ def define_G(input_nc,
     return netG
 
 
+def define_W(input_nc,
+             output_nc,
+             input_nb,
+             ngf,
+             which_model_netW,
+             norm='batch',
+             use_dropout=False,
+             init_type='normal',
+             gpu_ids=[]):
+    ''' Parses model parameters and defines the Generator module.
+    '''
+    netW = None
+    use_gpu = len(gpu_ids) > 0
+    norm_layer = get_norm_layer(norm_type=norm)
+
+    if use_gpu:
+        assert (torch.cuda.is_available())
+
+    if which_model_netW == 'resnet_temp':
+        netW = ResnetBeamletGenerator(
+            input_nc, # input is a dose tensor nc=1
+            output_nc, # output is 1 channel beamlet vector? nc=1
+            input_nb,
+            ngf,
+            padding_type='zero',
+            norm_layer=norm_layer,
+            use_dropout=use_dropout,
+            n_blocks=3, # used to be 9
+            gpu_ids=gpu_ids)
+    else:
+        raise NotImplementedError(
+            'Weight Generator model name [{}] is not recognized'.format(
+                which_model_netW))
+    if len(gpu_ids) > 0:
+        netW.cuda(gpu_ids[0])
+    init_weights(netW, init_type=init_type)
+    return netW
+
+
 def define_D(input_nc,
              ndf,
              which_model_netD,
@@ -310,6 +349,42 @@ def print_network(net):
 #
 
 
+class ReflectionPad3d(nn.Module):
+#class ReflectionPad3d(nn.modules.padding._ReflectionPadNd):
+    ''' Implements 3d version of ReflectionPad2d'''
+    def __init__(self, padding):
+        super(ReflectionPad3d, self).__init__()
+        self.padding = torch.nn.modules.utils._ntuple(6)(padding)
+        self.ReflectionPad3d = torch.nn.modules.padding._ReflectionPadNd.apply
+
+    def forward(self, input):
+        x = self.ReflectionPad3d(input, self.padding)
+        return x
+
+# class ReflectionPad3d(nn.Module): 
+#     """Wrapper for ReflectionPadNd function in 3 dimensions."""
+#     def __init__(self, padding):
+#         super(ReflectionPad3d, self).__init__()
+#         self.padding = torch.nn.modules.utils._ntuple(6)(padding)
+#         
+#     def forward(self, Variable):
+#         return torch.nn.modules.padding._ReflectionPadNd.apply(input, self.padding)
+# 
+#     def __repr__(self):
+#         return self.__class__.__name__ + '(' + str(self.padding) + ')'
+
+
+class View(nn.Module):
+    ''' Reshape data.
+    '''
+    def __init__(self, *shape): 
+        super(View, self).__init__() 
+        self.shape = shape 
+    
+    def forward(self, input):
+        return input.view(self.shape)
+
+
 class GANLoss(nn.Module):
     ''' Defines GAN loss func, which uses either LSGAN or regular GAN. LSGAN is
     effectively just MSELoss, but abstracts away the need to create the target
@@ -361,6 +436,131 @@ class GANLoss(nn.Module):
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
         return self.loss(input, target_tensor)
+
+
+class ResnetBeamletGenerator(nn.Module):
+    ''' Defines a weight generator comprised of half of a Resnet followed 
+
+    Init:
+        - Reflection Pad: 3px on all sides
+        - Conv2d: input -> 64 channels, 7x7 kernels, no padding
+        - Normalize -> ReLU
+
+    Downsample:
+        - Conv2d: 64 -> 128 channels, 3x3 kernels, 2 stride, 1 padding
+        - Normalize -> ReLU
+        - Conv2d: 128 -> 256 channels, 3x3 kernels, 2 stride, 1 padding
+        - Normalize -> ReLU
+
+    Resnet: (x n_blocks)
+        - Resnet: 256 -> 256 channels (Conv -> ReLU -> Conv -> ReLU + x)
+
+    Upsample:
+        - Deconv2d: 256 -> 128 channels, 3x3 kernels, 2 stride, 1 padding
+        - Normalize -> ReLU
+        - Deconv2d: 128 -> 64 channels, 3x3 kernels, 2 stride, 1 padding
+        - Normalize -> ReLU
+
+    Out:
+        - Reflection Pad: 3px on all sides
+        - Conv2d: 64 -> output channels, 7x7 kernels, no padding
+        - Tanh
+    '''
+
+    def __init__(self,
+                 input_nc,
+                 output_nc,
+                 input_nb,
+                 nwf=64,
+                 norm_layer=nn.BatchNorm3d,
+                 use_dropout=False,
+                 n_blocks=6,
+                 gpu_ids=[],
+                 padding_type='reflect',
+                 conv=nn.Conv3d):
+        assert (n_blocks >= 0)
+        super(ResnetBeamletGenerator, self).__init__()
+
+        # input and output number of channels
+        self.input_nc = input_nc
+        # self.output_nc = output_nc
+        self.nwf = nwf 
+        self.gpu_ids = gpu_ids
+        # bias only if we're doing instance normalization
+        if type(norm_layer) == functools.partial:
+            use_bias = (norm_layer.func == nn.InstanceNorm2d) or (
+                norm_layer.func == nn.InstanceNorm3d)
+        else:
+            use_bias = (norm_layer == nn.InstanceNorm2d) or (
+                norm_layer == nn.InstanceNorm3d)
+
+        kw = 4 
+        padw = 1
+        model = [
+            conv(input_nc, nwf, kernel_size=kw, stride=2, padding=padw),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        kw = 4
+        nf_mult = 1
+        nf_mult_prev = 1
+        for n in range(1, n_blocks):
+            # Conv2d: nwf -> 8 * nwf, 4x4 kernel size on first, the next 2
+            # are 8 * nwf -> 8 * nwf, 4x4 kernel, then all subsequent ones
+            # are 2 ** n * nwf -> 2 ** (n+1) * nwf , 4x4 kernel
+            # each Conv followed with a norm_layer and LeakyReLU
+            nf_mult_prev = nf_mult
+            nf_mult = min(2**n, 8)
+            model += [
+                conv(
+                    nwf * nf_mult_prev,
+                    nwf * nf_mult,
+                    kernel_size=kw,
+                    stride=2,
+                    padding=padw,
+                    bias=use_bias),
+                norm_layer(nwf * nf_mult),
+                nn.LeakyReLU(0.2, True)
+            ]
+
+        # Final Conv2d: 2 ** n * ndf -> 1, 4x4 kernels
+        model += [
+            conv(nwf * nf_mult, input_nb, kernel_size=kw, stride=1, padding=padw),
+            norm_layer(input_nb),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        n_nodes_final = 256
+        model += [
+            View(input_nb, -1),
+            nn.Linear(15 ** 3, n_nodes_final),
+            nn.ReLU(True),
+            nn.Dropout(0.5),
+            nn.Linear(n_nodes_final, input_nb),
+        ]
+
+        # model += [
+        #       View(input_nb, -1),
+        #       nn.Linear(4096, 256),
+        #       nn.ReLU(True),
+        #       nn.Dropout(0.5),
+        #       nn.Linear(256, input_nb),
+        # ]
+
+        
+        model += [
+            nn.Sigmoid()
+        ]
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, input):
+        # if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
+        #     return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        # else:
+        #    return self.model(input)
+        return self.model(input)
+
 
 
 class ResnetGenerator(nn.Module):
@@ -449,7 +649,7 @@ class ResnetGenerator(nn.Module):
         for i in range(n_blocks):  # default 6
             # Add resnet block
             model += [
-                ResnetBLock(
+                ResnetBlock(
                     ngf * mult,
                     padding_type=padding_type,
                     norm_layer=norm_layer,
@@ -489,17 +689,18 @@ class ResnetGenerator(nn.Module):
 class ResnetBlock(nn.Module):
     ''' Resnets reduce the vanishing gradient problem. The block is structured:
 
-        x -> Conv2d -> ReLU -> Conv2d -> out + x
+        x -> Conv -> ReLU -> Conv -> out + x
 
     Effectively, the input x is added back at the output (see self.forward()).
-    Each Conv2d block is 3x3 kernels with fixed dimension input and output
+    Each Conv block is 3x3 kernels with fixed dimension input and output
     channels.
     '''
 
-    def __init__(self, dim, padding_type, norm_layer, use_dropout, use_bias):
+    def __init__(self, dim, padding_type, norm_layer, use_dropout, use_bias,
+            conv=nn.Conv2d):
         super(ResnetBlock, self).__init__()
         self.conv_block = self.build_conv_block(dim, padding_type, norm_layer,
-                                                use_dropout, use_bias)
+                                                use_dropout, use_bias, conv)
 
     def build_conv_block(self,
                          dim,
@@ -507,19 +708,29 @@ class ResnetBlock(nn.Module):
                          norm_layer,
                          use_dropout,
                          use_bias,
-                         conv=nn.Conv2d):
+                         conv):
+        assert (conv == nn.Conv2d or conv == nn.Conv3d)
         conv_block = []
         p = 0
         # add 1px padding to input
-        if padding_type == 'reflect':
-            conv_block += [nn.ReflectionPad2d(1)]
-        elif padding_type == 'replicate':
-            conv_block += [nn.ReplicationPad2d(1)]
-        elif padding_type == 'zero':
-            p = 1
-        else:
-            raise NotImplementedError(
-                'padding [{}] is not implemented'.format(padding_type))
+        if conv == nn.Conv2d:
+            if padding_type == 'reflect':
+                conv_block += [nn.ReflectionPad2d(1)]
+            elif padding_type == 'replicate':
+                conv_block += [nn.ReplicationPad2d(1)]
+            elif padding_type == 'zero':
+                p = 1
+            else:
+                raise NotImplementedError(
+                    'padding [{}] is not implemented'.format(padding_type))
+        else: # not implementing replicationpad
+            if padding_type == 'reflect':
+                conv_block += [ReflectionPad3d(1)]
+            elif padding_type == 'zero':
+                p = 1
+            else:
+                raise NotImplementedError(
+                    'padding [{}] is not implemented'.format(padding_type))
 
         # 2d conv, same number of output channels as input, 3x3 kernels
         # Then batch normalize and RelU, and dropout if needed
@@ -532,15 +743,25 @@ class ResnetBlock(nn.Module):
             conv_block += [nn.Dropout(0.5)]
 
         p = 0
-        if padding_type == 'reflect':
-            conv_block += [nn.ReflectionPad2d(1)]
-        elif padding_type == 'replicate':
-            conv_block += [nn.ReplicationPad2d(1)]
-        elif padding_type == 'zero':
-            p = 1
-        else:
-            raise NotImplementedError(
-                'padding [{}] is not implemented'.format(padding_type))
+        if conv == nn.Conv2d:
+            if padding_type == 'reflect':
+                conv_block += [nn.ReflectionPad2d(1)]
+            elif padding_type == 'replicate':
+                conv_block += [nn.ReplicationPad2d(1)]
+            elif padding_type == 'zero':
+                p = 1
+            else:
+                raise NotImplementedError(
+                    'padding [{}] is not implemented'.format(padding_type))
+        else: # not implementing replicationpad
+            if padding_type == 'reflect':
+                conv_block += [ReflectionPad3d(1)]
+            elif padding_type == 'zero':
+                p = 1
+            else:
+                raise NotImplementedError(
+                    'padding [{}] is not implemented'.format(padding_type))
+
 
         # 2d conv, same number of output channels as input 3x3 kernels, then
         # batch normalize

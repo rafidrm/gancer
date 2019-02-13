@@ -1,5 +1,6 @@
 import torch.utils.data
 from data.base_data_loader import BaseDataLoader
+import pudb
 
 
 def CreateDataset(opt):
@@ -26,6 +27,9 @@ def CreateDataset(opt):
     elif opt.dataset_mode == 'voxel':
         from data.voxel_dataset import VoxelDataset
         dataset = VoxelDataset()
+    elif opt.dataset_mode == 'beamlet':
+        from data.beamlet_dataset import BeamletDataset
+        dataset = BeamletDataset()
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset_mode)
 

@@ -18,6 +18,10 @@ def create_model(opt):
         assert (opt.dataset_mode == 'slice')
         from .unetcnn_model import UnetCNNModel
         model = UnetCNNModel()
+    elif opt.model == 'beamlet':
+        assert (opt.dataset_mode == 'beamlet')
+        from .beamlet_model import BeamletModel
+        model = BeamletModel()
     elif opt.model == 'test':
         assert (opt.dataset_mode == 'single')
         from .test_model import TestModel

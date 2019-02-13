@@ -23,6 +23,41 @@ def vox2tensor(img):
     pass
 
 
+def sparse2iv(mat):
+    ''' Converts a Numpy array sparse (W x H) to the necessary pieces
+    in order to make a sparse tensor later. Pieces are i, v, and shape.
+    '''
+    if mat.ndim == 2:
+        val = mat.data
+        ind = np.vstack((mat.row, mat.col))
+        shape = mat.shape
+
+        i = torch.LongTensor(ind)
+        v = torch.FloatTensor(val)
+        return i, v, shape
+    else:
+        raise TypeError('mat should have 2 dimensions.')
+
+
+def sparseivshape2tensor(i, v, shape):
+    return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
+
+def sparse2tensor(mat):
+    ''' Converts a Numpy array (W x H) to a sparse Tensor
+    '''
+    if mat.ndim == 2:
+        val = mat.data
+        ind = np.vstack((mat.row, mat.col))
+        shape = mat.shape
+
+        i = torch.LongTensor(ind)
+        v = torch.FloatTensor(val)
+        return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+    else:
+        raise TypeError('mat should have 2 dimensions.')
+
+
 def normalize3d(img, mean, std):
     ''' Normalizes a voxel Tensor (C x D x H x W) by mean and std. '''
     if len(mean) < 3 or len(std) < 3:

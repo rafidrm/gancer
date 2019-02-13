@@ -22,10 +22,10 @@ class BaseOptions():
         self.parser.add_argument(
                 '--loadSize',
                 type=int,
-                default=286,
+                default=128,
                 help='scale images to this size')
         self.parser.add_argument(
-                '--fineSize', type=int, default=256, help='then crop to this size')
+                '--fineSize', type=int, default=128, help='then crop to this size')
         self.parser.add_argument(
                 '--input_nc',
                 type=int,
@@ -34,7 +34,7 @@ class BaseOptions():
         self.parser.add_argument(
                 '--output_nc',
                 type=int,
-                default=3,
+                default=1,
                 help='# of output image channels')
         self.parser.add_argument(
                 '--ngf',
@@ -47,15 +47,25 @@ class BaseOptions():
                 default=64,
                 help='# of discrim filters in first conv layer')
         self.parser.add_argument(
+                '--nwf',
+                type=int,
+                default=64,
+                help='# of beamlet filters in first conv layer')
+        self.parser.add_argument(
                 '--which_model_netD',
                 type=str,
-                default='basic',
+                default='n_layers_3d',
                 help='selects model to use for netD')
         self.parser.add_argument(
                 '--which_model_netG',
                 type=str,
-                default='resnet_9blocks',
+                default='unet_128_3d',
                 help='selects model to use for netG')
+        self.parser.add_argument(
+                '--which_model_netW',
+                type=str,
+                default='resnet_temp',
+                help='selects model to use for netW')
         self.parser.add_argument(
                 '--n_layers_D',
                 type=int,
@@ -84,7 +94,7 @@ class BaseOptions():
                 '--model',
                 type=str,
                 default='pix2pix',
-                help='chooses which model to use. cycle_gan, pix2pix,vox2vox, test'
+                help='chooses which model to use. pix2pix,vox2vox, beamlet'
                 )
         self.parser.add_argument(
                 '--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
@@ -101,7 +111,7 @@ class BaseOptions():
         self.parser.add_argument(
                 '--norm',
                 type=str,
-                default='instance',
+                default='batch_3d',
                 help=
                 'instance normalization or batch normalization [batch | instance | batch_3d | instance_3d]'
                 )
