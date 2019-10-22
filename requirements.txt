@@ -12,7 +12,7 @@ matplotlib==2.2.2
 networkx==2.1
 numpy==1.14.2
 opencv-python==3.4.1.15
-Pillow==5.0.0
+Pillow==6.2.0
 pudb==2017.1.4
 Pygments==2.2.0
 pyparsing==2.2.0
